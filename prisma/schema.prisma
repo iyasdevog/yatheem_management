@@ -1,0 +1,281 @@
+// Prisma Schema for Yatheem & Student Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("OFFICE_STAFF") // ADMIN, OFFICE_STAFF, SPONSOR, STUDENT_FAMILY
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Master Location Data Tables
+model State {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  districts District[]
+}
+
+model District {
+  id          String      @id @default(uuid())
+  name        String
+  stateId     String
+  state       State       @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  localBodies LocalBody[]
+  postOffices PostOffice[]
+  mahallus    Mahallu[]
+}
+
+model LocalBodyType {
+  id          String      @id @default(uuid())
+  name        String      // e.g. 'Municipal Corporation', 'Municipality', 'Grama Panchayat'
+  localBodies LocalBody[]
+}
+
+model LocalBody {
+  id              String        @id @default(uuid())
+  name            String
+  districtId      String
+  district        District      @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  localBodyTypeId String
+  localBodyType   LocalBodyType @relation(fields: [localBodyTypeId], references: [id], onDelete: Cascade)
+  postOffices     PostOffice[]
+}
+
+model PostOffice {
+  id          String     @id @default(uuid())
+  name        String
+  pinCode     String
+  districtId  String
+  district    District   @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  localBodyId String?
+  localBody   LocalBody? @relation(fields: [localBodyId], references: [id], onDelete: SetNull)
+}
+
+model Mahallu {
+  id         String    @id @default(uuid())
+  name       String
+  districtId String
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  place      String?
+  students   Student[]
+}
+
+model SponsorshipSlab {
+  id          String                  @id @default(uuid())
+  name        String
+  amount      Float
+  description String?
+  allocations SponsorSlabAllocation[]
+}
+
+model Sponsor {
+  id                   String                  @id @default(uuid())
+  sponsorId            String                  @unique // e.g. SP-2026-001
+  name                 String
+  gender               String?
+  isAnonymous          Boolean                 @default(false)
+  nationalId           String?
+  contact1             String
+  contact2             String?
+  whatsapp             String?
+  houseName            String?
+  place                String?
+  stateId              String?
+  districtId           String?
+  localBodyTypeId      String?
+  localBodyId          String?
+  postOfficeId         String?
+  pinCode              String?
+  sponsorshipStartDate DateTime                @default(now())
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  students             Student[]
+  slabAllocations      SponsorSlabAllocation[]
+}
+
+model Student {
+  id                   String               @id @default(uuid())
+  admissionNo          String               @unique // Auto-generated / Editable
+  familyNo             String               // Auto-generated / Editable
+  admissionDate        DateTime             @default(now())
+  name                 String
+  dob                  DateTime
+  gender               String
+  nationalId           String?
+  photoKey             String?              // Dynamic relative file key: e.g. students/photos/student_101.jpg
+  contact1             String
+  contact2             String?
+  whatsapp             String?
+  status               String               @default("ACTIVE") // ACTIVE, INACTIVE
+  inactiveReason       String?              // Multilingual text support
+  
+  // Sponsor Link
+  sponsorId            String?
+  sponsor              Sponsor?             @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  sponsorshipStartDate DateTime?
+
+  // Guardian Details
+  guardianName         String?
+  fatherName           String?
+  motherName           String?
+
+  // Cascading Address Details
+  houseName            String
+  place                String
+  stateId              String?
+  districtId           String?
+  localBodyTypeId      String?
+  localBodyId          String?
+  postOfficeId         String?
+  pinCode              String?
+  mahalluId            String?
+  mahallu              Mahallu?             @relation(fields: [mahalluId], references: [id], onDelete: SetNull)
+  familyCategory       String?              // BPL, APL, Poor, Yatheem, etc.
+
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  educationalRecords   EducationalRecord[]
+  slabAllocations      SponsorSlabAllocation[]
+  attendances          Attendance[]
+  vouchers             Voucher[]
+  reimbursements       ReimbursementRequest[]
+  markListSubmissions  MarkListSubmission[]
+  documentLockerItems  DocumentLockerItem[]
+
+  @@index([familyNo])
+  @@index([status])
+}
+
+model EducationalRecord {
+  id                   String   @id @default(uuid())
+  studentId            String
+  student              Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear         String   // e.g., '2025-2026'
+
+  // School Lineage
+  schoolCategory       String   // e.g. 'Not Studying', 'Montessori', 'KG', 'LP', 'UP', 'High School', 'Higher Secondary', 'Degree', 'Education Complete', 'Other'
+  schoolName           String?
+  classDivision        String?  // e.g. '10-A'
+  schoolTeacherName    String?
+  schoolTeacherContact String?
+  schoolMarksJson      String?  // Formatted JSON string of subject marks
+
+  // Madrasa Lineage
+  madrasaCategory      String?  // e.g. 'AP', 'EK', 'Other'
+  madrasaName          String?
+  madrasaClass         String?
+  madrasaTeacherName   String?
+  madrasaTeacherContact String?
+  madrasaMarksJson     String?
+
+  createdAt            DateTime @default(now())
+
+  @@index([studentId, academicYear])
+}
+
+model SponsorSlabAllocation {
+  id           String          @id @default(uuid())
+  sponsorId    String
+  sponsor      Sponsor         @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  slabId       String?
+  slab         SponsorshipSlab? @relation(fields: [slabId], references: [id], onDelete: SetNull)
+  customAmount Float?
+  allocatedAt  DateTime        @default(now())
+
+  @@index([sponsorId])
+  @@index([studentId])
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  familyNo    String
+  admissionNo String
+  date        DateTime @default(now())
+  status      String   // PRESENT, ABSENT, LEAVE
+  leaveReason String?  // Mandatory if status == LEAVE
+  mode        String   @default("MANUAL") // MANUAL, QR
+  recordedAt  DateTime @default(now())
+
+  @@index([studentId, date])
+  @@index([familyNo])
+}
+
+model Voucher {
+  id          String   @id @default(uuid())
+  voucherNo   String   @unique // Auto-generated or editable
+  date        DateTime @default(now())
+  amount      Float
+  type        String   @default("STUDENT_EXPENSE") // STUDENT_EXPENSE, YATHEEM_COMMON
+  heading     String   // Line item: 'Dress exp', 'Meat exp', 'Medical exp', 'Salary of section employees', etc.
+  paymentMode String   // Cash, Bank Transfer, UPI, Cheque
+  
+  // Student linkage (if type == STUDENT_EXPENSE)
+  studentId   String?
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  familyNo    String?
+  studentName String?
+  sponsorName String?  // Cached active sponsor name
+
+  description String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([heading])
+  @@index([studentId])
+  @@index([date])
+}
+
+model ReimbursementRequest {
+  id               String   @id @default(uuid())
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount           Float
+  heading          String
+  description      String
+  status           String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  documentKeysJson String?  // Array of stored file keys
+  reviewNote       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model MarkListSubmission {
+  id           String   @id @default(uuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear String
+  term         String   // 'First Term', 'Midterm', 'Annual', etc.
+  fileKey      String   // Storage relative file key
+  status       String   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  reviewedBy   String?
+  reviewNote   String?
+  createdAt    DateTime @default(now())
+}
+
+model DocumentLockerItem {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title      String
+  category   String   // 'Aadhaar', 'Birth Certificate', 'Ration Card', 'SSLC Marksheet', 'Other'
+  fileKey    String   // Relative file key
+  uploadedAt DateTime @default(now())
+}
