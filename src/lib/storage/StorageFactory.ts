@@ -8,7 +8,8 @@ export class StorageFactory {
 
   public static getStorageService(): IStorageService {
     if (!StorageFactory.instance) {
-      const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
+      const defaultProvider = (process.env.VERCEL || process.env.NODE_ENV === 'production') ? 'firebase' : 'local';
+      const provider = (process.env.STORAGE_PROVIDER || defaultProvider).toLowerCase();
 
       switch (provider) {
         case 'firebase':
