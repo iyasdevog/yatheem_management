@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:clean": "tsx scripts/clean-db.ts",
     "db:studio": "prisma studio",
     "import:legacy": "tsx scripts/import-excel-legacy.ts",
     "import:sponsors": "tsx scripts/import-sponsors-legacy.ts"
