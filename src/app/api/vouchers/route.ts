@@ -29,12 +29,14 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type');
     const heading = searchParams.get('heading');
     const studentId = searchParams.get('studentId');
+    const sponsorId = searchParams.get('sponsorId');
     const familyNo = searchParams.get('familyNo');
 
     const where: any = {};
     if (type) where.type = type;
     if (heading) where.heading = heading;
     if (studentId) where.studentId = studentId;
+    if (sponsorId) where.sponsorId = sponsorId;
     if (familyNo) where.familyNo = familyNo;
 
     const vouchers = await db.voucher.findMany({
@@ -48,6 +50,9 @@ export async function GET(req: NextRequest) {
             name: true,
             sponsor: { select: { id: true, name: true, isAnonymous: true } },
           },
+        },
+        sponsor: {
+          select: { id: true, name: true, sponsorId: true, isAnonymous: true },
         },
       },
       orderBy: { date: 'desc' },
@@ -71,6 +76,7 @@ export async function POST(req: NextRequest) {
       heading,
       paymentMode,
       studentId,
+      sponsorId,
       familyNo,
       studentName,
       description,
@@ -87,6 +93,7 @@ export async function POST(req: NextRequest) {
     const autoVoucherNo = voucherNo || `VCH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
     let activeSponsorName = null;
+    let resolvedSponsorId = sponsorId || null;
     let resolvedFamilyNo = familyNo;
     let resolvedStudentName = studentName;
 
@@ -99,10 +106,16 @@ export async function POST(req: NextRequest) {
         resolvedFamilyNo = student.familyNo;
         resolvedStudentName = student.name;
         if (student.sponsor) {
+          resolvedSponsorId = student.sponsor.id;
           activeSponsorName = student.sponsor.isAnonymous
             ? 'Well-wisher'
             : student.sponsor.name;
         }
+      }
+    } else if (resolvedSponsorId) {
+      const sp = await db.sponsor.findUnique({ where: { id: resolvedSponsorId } });
+      if (sp) {
+        activeSponsorName = sp.isAnonymous ? 'Well-wisher' : sp.name;
       }
     }
 
@@ -115,6 +128,7 @@ export async function POST(req: NextRequest) {
         heading,
         paymentMode,
         studentId: studentId || null,
+        sponsorId: resolvedSponsorId,
         familyNo: resolvedFamilyNo,
         studentName: resolvedStudentName,
         sponsorName: activeSponsorName,

@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
+import { deleteSession } from '@/lib/auth';
 
 export async function POST() {
-  const response = NextResponse.json({ success: true, message: 'Logged out successfully' });
-  response.cookies.set({
-    name: 'yatheem_token',
-    value: '',
-    path: '/',
-    maxAge: 0,
-  });
-  return response;
+  await deleteSession();
+  return NextResponse.json({ success: true });
 }

@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
 
-export async function GET(req: NextRequest) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
-    }
-
-    return NextResponse.json({ authenticated: true, user });
-  } catch (error) {
-    return NextResponse.json({ authenticated: false, user: null }, { status: 500 });
+export async function GET() {
+  const session = await getSession();
+  
+  if (!session) {
+    return NextResponse.json({ authenticated: false }, { status: 401 });
   }
+
+  return NextResponse.json({
+    authenticated: true,
+    user: session,
+  });
 }

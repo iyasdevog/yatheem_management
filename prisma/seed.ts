@@ -72,19 +72,38 @@ async function main() {
   console.log('✓ Created system users with JWT RBAC roles');
 
   // 2. Cascading Administrative Location Master Data
-  const kerala = await prisma.state.create({
-    data: { name: 'Kerala' },
-  });
+  const kerala = await prisma.state.create({ data: { name: 'Kerala' } });
+  const tamilNadu = await prisma.state.create({ data: { name: 'Tamil Nadu' } });
+  const karnataka = await prisma.state.create({ data: { name: 'Karnataka' } });
+  const lakshadweep = await prisma.state.create({ data: { name: 'Lakshadweep' } });
+  const outOfState = await prisma.state.create({ data: { name: 'Other (Out of State)' } });
 
-  const malappuram = await prisma.district.create({
-    data: { name: 'Malappuram', stateId: kerala.id },
-  });
-  const kozhikode = await prisma.district.create({
-    data: { name: 'Kozhikode', stateId: kerala.id },
-  });
-  const wayanad = await prisma.district.create({
-    data: { name: 'Wayanad', stateId: kerala.id },
-  });
+  // 14 Districts of Kerala
+  const malappuram = await prisma.district.create({ data: { name: 'Malappuram', stateId: kerala.id } });
+  const kozhikode = await prisma.district.create({ data: { name: 'Kozhikode', stateId: kerala.id } });
+  const wayanad = await prisma.district.create({ data: { name: 'Wayanad', stateId: kerala.id } });
+  const kannur = await prisma.district.create({ data: { name: 'Kannur', stateId: kerala.id } });
+  const kasaragod = await prisma.district.create({ data: { name: 'Kasaragod', stateId: kerala.id } });
+  const palakkad = await prisma.district.create({ data: { name: 'Palakkad', stateId: kerala.id } });
+  const thrissur = await prisma.district.create({ data: { name: 'Thrissur', stateId: kerala.id } });
+  const ernakulam = await prisma.district.create({ data: { name: 'Ernakulam', stateId: kerala.id } });
+  const idukki = await prisma.district.create({ data: { name: 'Idukki', stateId: kerala.id } });
+  const kottayam = await prisma.district.create({ data: { name: 'Kottayam', stateId: kerala.id } });
+  const alappuzha = await prisma.district.create({ data: { name: 'Alappuzha', stateId: kerala.id } });
+  const pathanamthitta = await prisma.district.create({ data: { name: 'Pathanamthitta', stateId: kerala.id } });
+  const kollam = await prisma.district.create({ data: { name: 'Kollam', stateId: kerala.id } });
+  const thiruvananthapuram = await prisma.district.create({ data: { name: 'Thiruvananthapuram', stateId: kerala.id } });
+
+  // Out of State Districts
+  const nilgiris = await prisma.district.create({ data: { name: 'Nilgiris', stateId: tamilNadu.id } });
+  const coimbatore = await prisma.district.create({ data: { name: 'Coimbatore', stateId: tamilNadu.id } });
+  const kanyakumari = await prisma.district.create({ data: { name: 'Kanyakumari', stateId: tamilNadu.id } });
+  const dakshinaKannada = await prisma.district.create({ data: { name: 'Dakshina Kannada (Mangalore)', stateId: karnataka.id } });
+  const kodagu = await prisma.district.create({ data: { name: 'Kodagu (Coorg)', stateId: karnataka.id } });
+  const mysuru = await prisma.district.create({ data: { name: 'Mysuru', stateId: karnataka.id } });
+  const kavaratti = await prisma.district.create({ data: { name: 'Kavaratti / Lakshadweep Islands', stateId: lakshadweep.id } });
+  const otherDistrict = await prisma.district.create({ data: { name: 'Other Out-of-State District', stateId: outOfState.id } });
+
 
   const corpType = await prisma.localBodyType.create({ data: { name: 'Municipal Corporation' } });
   const munType = await prisma.localBodyType.create({ data: { name: 'Municipality' } });
@@ -99,8 +118,31 @@ async function main() {
   const tirurMun = await prisma.localBody.create({
     data: { name: 'Tirur Municipality', districtId: malappuram.id, localBodyTypeId: munType.id },
   });
+  const kondottyGp = await prisma.localBody.create({
+    data: { name: 'Kondotty Grama Panchayat', districtId: malappuram.id, localBodyTypeId: gpType.id },
+  });
+
   const kozhikodeCorp = await prisma.localBody.create({
     data: { name: 'Kozhikode Corporation', districtId: kozhikode.id, localBodyTypeId: corpType.id },
+  });
+  const koduvallyGp = await prisma.localBody.create({
+    data: { name: 'Koduvally Grama Panchayat', districtId: kozhikode.id, localBodyTypeId: gpType.id },
+  });
+  const kunnamangalamGp = await prisma.localBody.create({
+    data: { name: 'Kunnamangalam Grama Panchayat', districtId: kozhikode.id, localBodyTypeId: gpType.id },
+  });
+  const balusseryGp = await prisma.localBody.create({
+    data: { name: 'Balussery Grama Panchayat', districtId: kozhikode.id, localBodyTypeId: gpType.id },
+  });
+  const ramanattukaraMun = await prisma.localBody.create({
+    data: { name: 'Ramanattukara Municipality', districtId: kozhikode.id, localBodyTypeId: munType.id },
+  });
+
+  const kalpettaMun = await prisma.localBody.create({
+    data: { name: 'Kalpetta Municipality', districtId: wayanad.id, localBodyTypeId: munType.id },
+  });
+  const vythiriGp = await prisma.localBody.create({
+    data: { name: 'Vythiri Grama Panchayat', districtId: wayanad.id, localBodyTypeId: gpType.id },
   });
 
   const po1 = await prisma.postOffice.create({
@@ -111,6 +153,18 @@ async function main() {
   });
   const po3 = await prisma.postOffice.create({
     data: { name: 'Tirur HO', pinCode: '676101', districtId: malappuram.id, localBodyId: tirurMun.id },
+  });
+  const po4 = await prisma.postOffice.create({
+    data: { name: 'Koduvally SO', pinCode: '673661', districtId: kozhikode.id, localBodyId: koduvallyGp.id },
+  });
+  const po5 = await prisma.postOffice.create({
+    data: { name: 'Kunnamangalam SO', pinCode: '673571', districtId: kozhikode.id, localBodyId: kunnamangalamGp.id },
+  });
+  const po6 = await prisma.postOffice.create({
+    data: { name: 'Kozhikode HO', pinCode: '673001', districtId: kozhikode.id, localBodyId: kozhikodeCorp.id },
+  });
+  const po7 = await prisma.postOffice.create({
+    data: { name: 'Kalpetta SO', pinCode: '673121', districtId: wayanad.id, localBodyId: kalpettaMun.id },
   });
 
   console.log('✓ Created cascading administrative location master');

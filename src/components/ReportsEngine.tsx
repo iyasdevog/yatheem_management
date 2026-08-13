@@ -27,6 +27,8 @@ export const ReportsEngine: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [expandedSponsor, setExpandedSponsor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,7 +39,10 @@ export const ReportsEngine: React.FC = () => {
     setLoading(true);
     setData(null);
     try {
-      const res = await fetch(`/api/reports?type=${activeReport}`);
+      let url = `/api/reports?type=${activeReport}`;
+      if (startDate) url += `&startDate=${startDate}`;
+      if (endDate) url += `&endDate=${endDate}`;
+      const res = await fetch(url);
       setData(await res.json());
     } catch (err) {
       console.error('Failed to load report');
@@ -89,22 +94,50 @@ export const ReportsEngine: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Type Selector */}
-      <div className="flex gap-3 flex-wrap">
-        {REPORT_TYPES.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => { setActiveReport(id); setSearch(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition border ${
-              activeReport === id
-                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </button>
-        ))}
+      {/* Report Type Selector & Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex gap-3 flex-wrap">
+          {REPORT_TYPES.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => { setActiveReport(id); setSearch(''); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                activeReport === id
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {activeReport === 'sponsorReport' && (
+          <div className="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
+              title="Start Date"
+            />
+            <span className="text-slate-500 text-xs">to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none"
+              title="End Date"
+            />
+            <button
+              onClick={fetchReport}
+              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+            >
+              Filter
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && (
@@ -113,8 +146,15 @@ export const ReportsEngine: React.FC = () => {
         </div>
       )}
 
+      {/* Error Display */}
+      {!loading && data?.error && (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-rose-400 text-sm font-medium text-center">
+          {data.error}
+        </div>
+      )}
+
       {/* === DASHBOARD OVERVIEW === */}
-      {!loading && activeReport === 'dashboard' && data && (
+      {!loading && activeReport === 'dashboard' && data && !data.error && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Students', value: data.totalStudents, sub: `${data.activeStudents} Active / ${data.inactiveStudents} Inactive`, color: 'emerald' },
@@ -136,7 +176,7 @@ export const ReportsEngine: React.FC = () => {
       )}
 
       {/* === STUDENT EXPENSE REPORT === */}
-      {!loading && activeReport === 'studentExpenses' && data && (
+      {!loading && activeReport === 'studentExpenses' && data && !data.error && (
         <div className="space-y-6">
           {/* Heading Breakdown */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
@@ -209,14 +249,14 @@ export const ReportsEngine: React.FC = () => {
       )}
 
       {/* === SPONSOR EXECUTION REPORT === */}
-      {!loading && activeReport === 'sponsorReport' && data && (
+      {!loading && activeReport === 'sponsorReport' && data && !data.error && (
         <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <HeartHandshake className="w-4 h-4 text-amber-400" />
             Sponsor Execution Reports (Admin View — Real Identity Preserved)
           </h3>
           <div className="space-y-3">
-            {(data || []).map((sponsor: any) => (
+            {(Array.isArray(data) ? data : []).map((sponsor: any) => (
               <div key={sponsor.id} className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
                 <div
                   className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/80 transition"
@@ -237,49 +277,92 @@ export const ReportsEngine: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-sm font-extrabold text-rose-400">₹{sponsor.totalExecutionExpense.toLocaleString('en-IN')}</div>
-                      <div className="text-[10px] text-slate-500">Total Executed</div>
+                    <div className="flex gap-4 mr-4">
+                      <div className="text-right">
+                        <div className="text-sm font-extrabold text-emerald-400">₹{(sponsor.totalDonations || 0).toLocaleString('en-IN')}</div>
+                        <div className="text-[10px] text-slate-500">Donations Received</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-extrabold text-rose-400">₹{sponsor.totalExecutionExpense.toLocaleString('en-IN')}</div>
+                        <div className="text-[10px] text-slate-500">Total Executed</div>
+                      </div>
                     </div>
                     {expandedSponsor === sponsor.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                   </div>
                 </div>
 
                 {expandedSponsor === sponsor.id && (
-                  <div className="border-t border-slate-700 p-4 space-y-3">
-                    {sponsor.mappedStudents.map((st: any) => (
-                      <div key={st.id} className="space-y-2">
-                        <div className="text-xs font-bold text-teal-400">
-                          {st.name} · {st.admissionNo} · Fam: {st.familyNo}
-                        </div>
-                        {st.vouchers.length === 0 ? (
-                          <div className="text-[10px] text-slate-500 italic pl-2">No vouchers recorded for this student.</div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-[10px] text-slate-400">
-                              <thead>
-                                <tr className="text-slate-500 uppercase">
-                                  <th className="pb-1 text-left">Voucher No</th>
-                                  <th className="pb-1 text-left">Date</th>
-                                  <th className="pb-1 text-left">Heading</th>
-                                  <th className="pb-1 text-right">Amount</th>
+                  <div className="border-t border-slate-700 p-4 space-y-6">
+                    {/* Donations Section */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-emerald-400 border-b border-slate-800 pb-1">Donation History</h4>
+                      {!sponsor.donations || sponsor.donations.length === 0 ? (
+                        <div className="text-[10px] text-slate-500 italic pl-2">No donations recorded in this period.</div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[10px] text-slate-400">
+                            <thead>
+                              <tr className="text-slate-500 uppercase">
+                                <th className="pb-1 text-left">Receipt No</th>
+                                <th className="pb-1 text-left">Date</th>
+                                <th className="pb-1 text-left">Payment Mode</th>
+                                <th className="pb-1 text-right">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {sponsor.donations.map((d: any) => (
+                                <tr key={d.id}>
+                                  <td className="py-1 font-mono text-emerald-400">{d.voucherNo}</td>
+                                  <td className="py-1">{new Date(d.date).toLocaleDateString('en-IN')}</td>
+                                  <td className="py-1 text-slate-300">{d.paymentMode}</td>
+                                  <td className="py-1 text-right font-bold text-emerald-400">₹{d.amount.toLocaleString('en-IN')}</td>
                                 </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-800/60">
-                                {st.vouchers.map((v: any) => (
-                                  <tr key={v.id}>
-                                    <td className="py-1 font-mono text-amber-400">{v.voucherNo}</td>
-                                    <td className="py-1">{new Date(v.date).toLocaleDateString('en-IN')}</td>
-                                    <td className="py-1 text-slate-300">{v.heading}</td>
-                                    <td className="py-1 text-right font-bold text-emerald-400">₹{v.amount.toLocaleString('en-IN')}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Executions Section */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-rose-400 border-b border-slate-800 pb-1">Execution (Spent on Students)</h4>
+                      {sponsor.mappedStudents.length === 0 ? (
+                        <div className="text-[10px] text-slate-500 italic pl-2">No students assigned to this sponsor.</div>
+                      ) : sponsor.mappedStudents.map((st: any) => (
+                        <div key={st.id} className="space-y-2 mb-3">
+                          <div className="text-[11px] font-bold text-teal-400">
+                            {st.name} · {st.admissionNo} · Fam: {st.familyNo}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {st.vouchers.length === 0 ? (
+                            <div className="text-[10px] text-slate-500 italic pl-2">No execution vouchers recorded for this student in this period.</div>
+                          ) : (
+                            <div className="overflow-x-auto pl-2 border-l-2 border-slate-800">
+                              <table className="w-full text-[10px] text-slate-400">
+                                <thead>
+                                  <tr className="text-slate-500 uppercase">
+                                    <th className="pb-1 text-left">Voucher No</th>
+                                    <th className="pb-1 text-left">Date</th>
+                                    <th className="pb-1 text-left">Heading</th>
+                                    <th className="pb-1 text-right">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/60">
+                                  {st.vouchers.map((v: any) => (
+                                    <tr key={v.id}>
+                                      <td className="py-1 font-mono text-amber-400">{v.voucherNo}</td>
+                                      <td className="py-1">{new Date(v.date).toLocaleDateString('en-IN')}</td>
+                                      <td className="py-1 text-slate-300">{v.heading}</td>
+                                      <td className="py-1 text-right font-bold text-rose-400">₹{v.amount.toLocaleString('en-IN')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -289,7 +372,7 @@ export const ReportsEngine: React.FC = () => {
       )}
 
       {/* === ATTENDANCE REPORT === */}
-      {!loading && activeReport === 'attendanceReport' && data && (
+      {!loading && activeReport === 'attendanceReport' && data && !data.error && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[

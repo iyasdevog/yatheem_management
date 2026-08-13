@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { importLegacyExcel } from '@/lib/importLegacyExcel';
+import { importLegacySponsors } from '@/lib/importLegacySponsors';
 import fs from 'fs';
 import path from 'path';
 
@@ -7,6 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const type = (formData.get('type') as string) || 'students';
 
     if (!file) {
       return NextResponse.json({ error: 'No Excel/CSV file provided' }, { status: 400 });
@@ -23,7 +25,9 @@ export async function POST(req: NextRequest) {
     const tempFilePath = path.join(tempDir, `import_${Date.now()}_${file.name}`);
     await fs.promises.writeFile(tempFilePath, buffer);
 
-    const result = await importLegacyExcel(tempFilePath);
+    const result = type === 'sponsors'
+      ? await importLegacySponsors(tempFilePath)
+      : await importLegacyExcel(tempFilePath);
 
     // Clean temp file
     if (fs.existsSync(tempFilePath)) {
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully imported ${result.importedCount} records. ${result.skippedCount} dirty/unmapped records flagged.`,
+      message: `Successfully imported ${result.importedCount} ${type} records. ${result.skippedCount} dirty/unmapped records flagged.`,
       result,
     });
   } catch (error: any) {

@@ -37,17 +37,41 @@ export async function GET(req: NextRequest) {
         slabAllocations: {
           include: { slab: true, student: { select: { id: true, name: true, admissionNo: true } } },
         },
+        vouchers: {
+          orderBy: { date: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Check if requester is Admin or Staff vs Student Family/Public
     const isAdminOrStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'OFFICE_STAFF';
 
     const processedSponsors = sponsors.map((sponsor) => {
+      // Calculate Chronological Payment History & Commitment Financials
+      const vouchers = sponsor.vouchers || [];
+      const totalPaid = vouchers.reduce((acc, v) => acc + v.amount, 0);
+
+      // Determine commitment start date (Explicit OR derived from earliest payment date OR sponsorshipStartDate)
+      const firstPaymentDate = vouchers.length > 0 ? vouchers[0].date : sponsor.sponsorshipStartDate;
+      const effectiveStartDate = sponsor.commitmentStartDate || firstPaymentDate;
+
+      const annualCommitment = sponsor.annualCommitment || 0;
+      const remainingBalance = Math.max(0, annualCommitment - totalPaid);
+      const fulfillmentPercentage = annualCommitment > 0 ? Math.min(100, Math.round((totalPaid / annualCommitment) * 100)) : 100;
+
+      const base = {
+        ...sponsor,
+        annualCommitment,
+        commitmentStartDate: effectiveStartDate,
+        totalPaid,
+        remainingBalance,
+        fulfillmentPercentage,
+        paymentHistory: vouchers,
+      };
+
       if (sponsor.isAnonymous && !isAdminOrStaff) {
         return {
-          ...sponsor,
+          ...base,
           name: 'Well-wisher',
           contact1: 'Hidden (Anonymous)',
           contact2: null,
@@ -56,7 +80,7 @@ export async function GET(req: NextRequest) {
           place: 'Protected',
         };
       }
-      return sponsor;
+      return base;
     });
 
     return NextResponse.json(processedSponsors);
@@ -86,8 +110,10 @@ export async function POST(req: NextRequest) {
       localBodyId,
       postOfficeId,
       pinCode,
+      annualCommitment,
+      commitmentStartDate,
       sponsorshipStartDate,
-      studentAllocations, // Array of { studentId, slabId, customAmount }
+      studentAllocations,
     } = body;
 
     if (!name || !contact1) {
@@ -95,6 +121,9 @@ export async function POST(req: NextRequest) {
     }
 
     const nextSponsorId = sponsorId || `SP-2026-${Math.floor(100 + Math.random() * 900)}`;
+
+    const parsedCommitment = annualCommitment ? parseFloat(annualCommitment) : 0;
+    const startDate = commitmentStartDate ? new Date(commitmentStartDate) : (sponsorshipStartDate ? new Date(sponsorshipStartDate) : new Date());
 
     const sponsor = await db.sponsor.create({
       data: {
@@ -114,24 +143,23 @@ export async function POST(req: NextRequest) {
         localBodyId,
         postOfficeId,
         pinCode,
-        sponsorshipStartDate: sponsorshipStartDate ? new Date(sponsorshipStartDate) : new Date(),
+        annualCommitment: isNaN(parsedCommitment) ? 0 : parsedCommitment,
+        commitmentStartDate: startDate,
+        sponsorshipStartDate: startDate,
       },
     });
 
-    // Map Sponsor to Students via Slabs
     if (Array.isArray(studentAllocations) && studentAllocations.length > 0) {
       for (const alloc of studentAllocations) {
         if (alloc.studentId) {
-          // Link student to sponsor
           await db.student.update({
             where: { id: alloc.studentId },
             data: {
               sponsorId: sponsor.id,
-              sponsorshipStartDate: sponsorshipStartDate ? new Date(sponsorshipStartDate) : new Date(),
+              sponsorshipStartDate: startDate,
             },
           });
 
-          // Create slab allocation record
           await db.sponsorSlabAllocation.create({
             data: {
               sponsorId: sponsor.id,
@@ -151,5 +179,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sponsor ID already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create sponsor' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Sponsor ID required' }, { status: 400 });
+
+    await db.sponsor.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Sponsor DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete sponsor' }, { status: 500 });
   }
 }

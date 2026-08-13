@@ -11,6 +11,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
+    const MAX_FILE_SIZE = 100 * 1024; // 100 KB limit
+    if (file.size > MAX_FILE_SIZE) {
+      const currentKb = (file.size / 1024).toFixed(1);
+      return NextResponse.json(
+        { error: `File size (${currentKb} KB) exceeds maximum allowed limit of 100 KB. Please compress or select a smaller photo.` },
+        { status: 400 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 

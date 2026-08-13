@@ -1,46 +1,45 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-export type Role = 'ADMIN' | 'OFFICE_STAFF' | 'SPONSOR' | 'STUDENT_FAMILY';
+const SECRET_KEY = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key-yatheem-care-2026');
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'yatheemcare_super_secret_jwt_key_2026'
-);
-
-export interface JWTPayload {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-  sponsorId?: string;
-  studentId?: string;
-}
-
-export async function signToken(payload: JWTPayload): Promise<string> {
-  return new SignJWT({ ...payload })
+export async function createSession(payload: any) {
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET);
+    .sign(SECRET_KEY);
+
+  const cookieStore = await cookies();
+  cookieStore.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    expires: expiresAt,
+    sameSite: 'lax',
+    path: '/',
+  });
 }
 
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
+export async function getSession() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('session')?.value;
+  if (!session) return null;
+
   try {
-    const verified = await jwtVerify(token, JWT_SECRET);
-    return verified.payload as unknown as JWTPayload;
+    const { payload } = await jwtVerify(session, SECRET_KEY, {
+      algorithms: ['HS256'],
+    });
+    return payload;
   } catch (error) {
     return null;
   }
 }
 
-export async function getCurrentUser(): Promise<JWTPayload | null> {
+export async function deleteSession() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('yatheem_token')?.value;
-
-  if (!token) return null;
-  return verifyToken(token);
+  cookieStore.delete('session');
 }
 
-export function isAuthorized(userRole: Role, allowedRoles: Role[]): boolean {
-  return allowedRoles.includes(userRole);
-}
+// Alias for backwards compatibility with existing API routes
+export const getCurrentUser = getSession;

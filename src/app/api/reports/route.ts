@@ -5,6 +5,15 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const reportType = searchParams.get('type') || 'dashboard';
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    const dateFilter: any = {};
+    if (startDateParam || endDateParam) {
+      dateFilter.date = {};
+      if (startDateParam) dateFilter.date.gte = new Date(startDateParam);
+      if (endDateParam) dateFilter.date.lte = new Date(endDateParam);
+    }
 
     // 1. Dashboard Overview Metrics
     if (reportType === 'dashboard') {
@@ -80,8 +89,15 @@ export async function GET(req: NextRequest) {
         include: {
           students: {
             include: {
-              vouchers: { orderBy: { date: 'desc' } },
+              vouchers: { 
+                where: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+                orderBy: { date: 'desc' } 
+              },
             },
+          },
+          vouchers: {
+            where: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+            orderBy: { date: 'desc' }
           },
           slabAllocations: { include: { slab: true } },
         },
@@ -93,6 +109,11 @@ export async function GET(req: NextRequest) {
           std.vouchers.forEach((vch) => {
             totalExecutionExpense += vch.amount;
           });
+        });
+
+        let totalDonations = 0;
+        s.vouchers.forEach((vch) => {
+          totalDonations += vch.amount;
         });
 
         return {
@@ -110,7 +131,9 @@ export async function GET(req: NextRequest) {
             familyNo: std.familyNo,
             vouchers: std.vouchers,
           })),
+          donations: s.vouchers,
           totalExecutionExpense,
+          totalDonations,
         };
       });
 

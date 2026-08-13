@@ -69,6 +69,7 @@ model Mahallu {
   districtId String
   district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
   place      String?
+  isVerified Boolean   @default(true)
   students   Student[]
 }
 
@@ -98,11 +99,14 @@ model Sponsor {
   localBodyId          String?
   postOfficeId         String?
   pinCode              String?
+  annualCommitment     Float?                  @default(0)
+  commitmentStartDate DateTime?
   sponsorshipStartDate DateTime                @default(now())
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   students             Student[]
   slabAllocations      SponsorSlabAllocation[]
+  vouchers             Voucher[]
 }
 
 model Student {
@@ -226,9 +230,11 @@ model Voucher {
   heading     String   // Line item: 'Dress exp', 'Meat exp', 'Medical exp', 'Salary of section employees', etc.
   paymentMode String   // Cash, Bank Transfer, UPI, Cheque
   
-  // Student linkage (if type == STUDENT_EXPENSE)
+  // Student & Sponsor linkage
   studentId   String?
   student     Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  sponsorId   String?
+  sponsor     Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
   familyNo    String?
   studentName String?
   sponsorName String?  // Cached active sponsor name
@@ -240,6 +246,7 @@ model Voucher {
   @@index([type])
   @@index([heading])
   @@index([studentId])
+  @@index([sponsorId])
   @@index([date])
 }
 

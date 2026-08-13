@@ -190,3 +190,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create student admission' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
+
+    await db.student.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Student DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 });
+  }
+}

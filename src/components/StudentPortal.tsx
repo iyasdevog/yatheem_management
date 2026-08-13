@@ -28,10 +28,13 @@ const EXPENSE_HEADINGS = [
 
 const DOC_CATEGORIES = ['Aadhaar', 'Birth Certificate', 'Ration Card', 'SSLC Marksheet', 'Transfer Certificate', 'Other'];
 
-export const StudentPortal: React.FC = () => {
+export const StudentPortal: React.FC<{ currentRole?: string; currentUser?: any }> = ({ currentRole = 'ADMIN', currentUser }) => {
+  const isStudentView = currentRole === 'STUDENT_FAMILY';
   const [activeTab, setActiveTab] = useState('locker');
   const [students, setStudents] = useState<any[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(
+    isStudentView && currentUser?.role === 'STUDENT_FAMILY' ? currentUser.id : ''
+  );
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -47,7 +50,7 @@ export const StudentPortal: React.FC = () => {
   const [reimbursements, setReimbursements] = useState<any[]>([]);
   const [rForm, setRForm] = useState({ amount: '', heading: EXPENSE_HEADINGS[0], description: '' });
 
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => { if (!isStudentView) fetchStudents(); }, []);
   useEffect(() => {
     if (selectedStudentId) {
       fetchLockerItems();
@@ -78,11 +81,21 @@ export const StudentPortal: React.FC = () => {
   };
 
   const uploadFile = async (file: File, pathPrefix: string) => {
+    const MAX_SIZE = 100 * 1024; // 100 KB
+    if (file.size > MAX_SIZE) {
+      const fileKb = (file.size / 1024).toFixed(1);
+      throw new Error(`File size (${fileKb} KB) exceeds maximum allowed limit of 100 KB. Please compress file before uploading.`);
+    }
+
     const fd = new FormData();
     fd.append('file', file);
     fd.append('pathPrefix', pathPrefix);
     const res = await fetch('/api/storage/upload', { method: 'POST', body: fd });
-    return res.json();
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error || 'Upload failed');
+    }
+    return data;
   };
 
   const handleLockerUpload = async (e: React.FormEvent) => {
@@ -102,8 +115,8 @@ export const StudentPortal: React.FC = () => {
         setLockerForm({ title: '', category: 'Aadhaar', file: null });
         fetchLockerItems();
       }
-    } catch {
-      setMsg({ type: 'error', text: 'Upload failed' });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Upload failed' });
     } finally {
       setLoading(false);
     }
@@ -126,8 +139,8 @@ export const StudentPortal: React.FC = () => {
         setMarkForm({ academicYear: '2025-2026', term: 'First Term', file: null });
         fetchMarkLists();
       }
-    } catch {
-      setMsg({ type: 'error', text: 'Upload failed' });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Upload failed' });
     } finally {
       setLoading(false);
     }
@@ -203,20 +216,33 @@ export const StudentPortal: React.FC = () => {
         </p>
       </div>
 
-      {/* Student Selector */}
-      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-        <label className="block text-xs text-slate-400 mb-1 font-medium">Select Student to Manage</label>
-        <select
-          value={selectedStudentId}
-          onChange={(e) => setSelectedStudentId(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
-        >
-          <option value="">-- Select a Student --</option>
-          {students.map((st) => (
-            <option key={st.id} value={st.id}>{st.name} ({st.admissionNo}) — {st.status}</option>
-          ))}
-        </select>
-      </div>
+      {/* Student Selector — Hidden for Student Family view (auto-selected) */}
+      {!isStudentView && (
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <label className="block text-xs text-slate-400 mb-1 font-medium">Select Student to Manage</label>
+          <select
+            value={selectedStudentId}
+            onChange={(e) => setSelectedStudentId(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
+          >
+            <option value="">-- Select a Student --</option>
+            {students.map((st) => (
+              <option key={st.id} value={st.id}>{st.name} ({st.admissionNo}) — {st.status}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {isStudentView && currentUser && (
+        <div className="bg-violet-500/5 border border-violet-500/20 p-3 rounded-xl flex items-center gap-3 text-sm">
+          <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400 font-bold text-xs">
+            {currentUser.name?.charAt(0) || 'S'}
+          </div>
+          <div>
+            <span className="font-semibold text-white block">{currentUser.name}</span>
+            <span className="text-xs text-violet-400">{currentUser.email} · Your private portal</span>
+          </div>
+        </div>
+      )}
 
       {msg && (
         <div className={`p-4 rounded-xl text-sm flex items-center gap-3 border ${
