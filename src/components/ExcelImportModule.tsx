@@ -136,9 +136,12 @@ export const ExcelImportModule: React.FC = () => {
                   ].map((col) => <th key={col} className="p-2 text-left whitespace-nowrap">{col}</th>)
                 ) : (
                   [
-                    'Sponsor ID', 'Sponsor Name', 'Gender', 'Contact Number',
+                    'Sponsor ID', 'Sponsor Name', 'C/O', 'Gender', 'Contact Number',
                     'Is Anonymous', 'House Name', 'Place', 'District Name',
-                    'Payment Amount', 'Payment Date', 'Payment Mode', 'Slab Name', 'Monthly Slab Amount'
+                    'Annual Commitment', 'Count of Slabs', 'Slab Name',
+                    'Sponsored Student Name', 'Sponsored Student Adm No',
+                    'Starting Date', 'Ending Date',
+                    'Payment Amount', 'Payment Date', 'Payment Mode', 'Payment Heading'
                   ].map((col) => <th key={col} className="p-2 text-left whitespace-nowrap">{col}</th>)
                 )}
               </tr>
@@ -154,9 +157,12 @@ export const ExcelImportModule: React.FC = () => {
                   ].map((v, i) => <td key={i} className="p-2 whitespace-nowrap">{v}</td>)
                 ) : (
                   [
-                    'SP-001', 'Abdul Kareem', 'Male', '+91 9847112233',
+                    'SP-2026-001', 'Abdul Kareem', 'Moideen Kutty', 'Male', '+91 9847112233',
                     'No', 'Rahman Manzil', 'Kondotty', 'Malappuram',
-                    '5000', '2025-04-10', 'Bank Transfer', 'Gold Slab', '5000'
+                    '50000', '1', 'Grand Fixed Sponsorship Slab',
+                    'Mohammed Sahal', 'ADM-2026-001',
+                    '2025-01-01', '2025-12-31',
+                    '5000', '2025-04-10', 'Bank Transfer', 'Sponsorship Installment'
                   ].map((v, i) => <td key={i} className="p-2 whitespace-nowrap">{v}</td>)
                 )}
               </tr>
