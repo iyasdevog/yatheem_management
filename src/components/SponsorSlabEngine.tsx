@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   Trash2,
 } from 'lucide-react';
+import { SponsorPaymentTracker } from '@/components/SponsorPaymentTracker';
 
 export const SponsorSlabEngine: React.FC = () => {
   const [sponsors, setSponsors] = useState<any[]>([]);
@@ -26,6 +27,7 @@ export const SponsorSlabEngine: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [selectedLedgerSponsor, setSelectedLedgerSponsor] = useState<any | null>(null);
+  const [paymentTrackerSponsor, setPaymentTrackerSponsor] = useState<any | null>(null);
   const [exporting, setExporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -645,6 +647,14 @@ export const SponsorSlabEngine: React.FC = () => {
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() => setPaymentTrackerSponsor(sp)}
+                        className="inline-flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                        title="Track payments from this sponsor"
+                      >
+                        <IndianRupee className="w-3.5 h-3.5" />
+                        Payments
+                      </button>
+                      <button
                         onClick={() => setSelectedLedgerSponsor(sp)}
                         className="inline-flex items-center gap-1.5 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
                       >
@@ -794,6 +804,15 @@ export const SponsorSlabEngine: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Payment Tracker Modal */}
+      {paymentTrackerSponsor && (
+        <SponsorPaymentTracker
+          sponsorId={paymentTrackerSponsor.id}
+          sponsorName={paymentTrackerSponsor.isAnonymous ? 'Anonymous Donor' : paymentTrackerSponsor.name}
+          onClose={() => { setPaymentTrackerSponsor(null); fetchData(); }}
+        />
       )}
     </div>
   );

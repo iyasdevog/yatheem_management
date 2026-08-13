@@ -184,16 +184,16 @@ async function main() {
 
   // 4. Sponsorship Slab Master
   const slabFixed50k = await prisma.sponsorshipSlab.create({
-    data: { name: 'Grand Fixed Sponsorship Slab', amount: 50000, description: 'Fixed ₹50,000/mo comprehensive orphan support' },
+    data: { name: 'Grand Fixed Sponsorship Slab', amount: 50000, description: 'Fixed ₹50,000/year comprehensive orphan support' },
   });
   const slabEducation = await prisma.sponsorshipSlab.create({
-    data: { name: 'Full Education & Tuition Slab', amount: 15000, description: 'Covers school fees, textbooks, uniforms, and madrasa affairs' },
+    data: { name: 'Full Education & Tuition Slab', amount: 15000, description: 'Covers school fees, textbooks, uniforms, and madrasa affairs (yearly)' },
   });
   const slabFood = await prisma.sponsorshipSlab.create({
-    data: { name: 'Monthly Food & Perunnal Kit Slab', amount: 10000, description: 'Covers meat exp, monthly kit exp, and nutritional care' },
+    data: { name: 'Food & Perunnal Kit Slab', amount: 10000, description: 'Covers meat exp, monthly kit exp, and nutritional care (yearly)' },
   });
   const slabMedical = await prisma.sponsorshipSlab.create({
-    data: { name: 'Medical & Healthcare Slab', amount: 5000, description: 'Medical expenses and emergency healthcare support' },
+    data: { name: 'Medical & Healthcare Slab', amount: 5000, description: 'Medical expenses and emergency healthcare support (yearly)' },
   });
 
   console.log('✓ Created Sponsorship Slabs');

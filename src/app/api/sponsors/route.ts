@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
         vouchers: {
           orderBy: { date: 'asc' },
         },
+        payments: {
+          orderBy: { date: 'desc' },
+          select: { id: true, amount: true, date: true, paymentMode: true, reference: true, notes: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -47,11 +51,12 @@ export async function GET(req: NextRequest) {
     const isAdminOrStaff = currentUser?.role === 'ADMIN' || currentUser?.role === 'OFFICE_STAFF';
 
     const processedSponsors = sponsors.map((sponsor) => {
-      // Calculate Chronological Payment History & Commitment Financials
-      const vouchers = sponsor.vouchers || [];
-      const totalPaid = vouchers.reduce((acc, v) => acc + v.amount, 0);
+      // Use SponsorPayment records as the source of truth for totalPaid
+      const payments = sponsor.payments || [];
+      const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
 
-      // Determine commitment start date (Explicit OR derived from earliest payment date OR sponsorshipStartDate)
+      // Determine effective start date
+      const vouchers = sponsor.vouchers || [];
       const firstPaymentDate = vouchers.length > 0 ? vouchers[0].date : sponsor.sponsorshipStartDate;
       const effectiveStartDate = sponsor.commitmentStartDate || firstPaymentDate;
 
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest) {
         totalPaid,
         remainingBalance,
         fulfillmentPercentage,
-        paymentHistory: vouchers,
+        paymentHistory: payments,
       };
 
       if (sponsor.isAnonymous && !isAdminOrStaff) {

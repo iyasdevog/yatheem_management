@@ -108,6 +108,7 @@ model Sponsor {
   students             Student[]
   slabAllocations      SponsorSlabAllocation[]
   vouchers             Voucher[]
+  payments             SponsorPayment[]
 }
 
 model Student {
@@ -247,6 +248,23 @@ model Voucher {
   @@index([type])
   @@index([heading])
   @@index([studentId])
+  @@index([sponsorId])
+  @@index([date])
+}
+
+// Tracks individual installment payments received FROM sponsors
+model SponsorPayment {
+  id          String   @id @default(uuid())
+  sponsorId   String
+  sponsor     Sponsor  @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  amount      Float
+  date        DateTime @default(now())
+  paymentMode String   @default("Cash") // Cash, Bank Transfer, UPI, Cheque
+  reference   String?  // Cheque no, UTR no, transaction ID
+  notes       String?
+  recordedBy  String?
+  createdAt   DateTime @default(now())
+
   @@index([sponsorId])
   @@index([date])
 }
