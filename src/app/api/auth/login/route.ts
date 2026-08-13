@@ -72,8 +72,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Login error details:', error);
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: error?.message || String(error),
+    }, { status: 500 });
   }
 }

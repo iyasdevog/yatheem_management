@@ -2,31 +2,45 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-// Fix for SQLite on Vercel Serverless environment:
-// Vercel function filesystem is read-only, except for /tmp.
-// We copy the seeded SQLite dev.db from bundle (/var/task/prisma/dev.db) to /tmp/dev.db.
-if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-  try {
-    const dbName = 'dev.db';
-    const bundledDbPath = path.join(process.cwd(), 'prisma', dbName);
-    const tmpDbPath = path.join('/tmp', dbName);
-
-    if (fs.existsSync(bundledDbPath) && !fs.existsSync(tmpDbPath)) {
-      fs.copyFileSync(bundledDbPath, tmpDbPath);
-      console.log(`[Prisma DB] Successfully copied ${bundledDbPath} to writable ${tmpDbPath}`);
-    }
-
-    if (fs.existsSync(tmpDbPath)) {
-      process.env.DATABASE_URL = `file:${tmpDbPath}`;
-    } else if (!process.env.DATABASE_URL) {
-      process.env.DATABASE_URL = `file:${bundledDbPath}`;
-    }
-  } catch (err) {
-    console.error('[Prisma DB] Vercel /tmp DB copy error:', err);
+function getDatabaseUrl(): string {
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('file:./')) {
+    return process.env.DATABASE_URL;
   }
-} else if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:./prisma/dev.db';
+
+  const dbName = 'dev.db';
+  const tmpDbPath = path.join('/tmp', dbName);
+
+  // Search possible paths for bundled dev.db on Vercel lambda
+  const possiblePaths = [
+    path.join(process.cwd(), 'prisma', dbName),
+    path.join(process.cwd(), '.next', 'server', 'prisma', dbName),
+    path.join(__dirname, '..', '..', '..', 'prisma', dbName),
+  ];
+
+  let bundledDbPath = possiblePaths.find((p) => fs.existsSync(p));
+
+  if (bundledDbPath && !fs.existsSync(tmpDbPath)) {
+    try {
+      fs.copyFileSync(bundledDbPath, tmpDbPath);
+      console.log(`[Prisma DB] Copied bundled DB from ${bundledDbPath} to writable ${tmpDbPath}`);
+    } catch (e) {
+      console.error('[Prisma DB] Copy error:', e);
+    }
+  }
+
+  if (fs.existsSync(tmpDbPath)) {
+    return `file:${tmpDbPath}`;
+  }
+
+  if (bundledDbPath) {
+    return `file:${bundledDbPath}`;
+  }
+
+  return 'file:./prisma/dev.db';
 }
+
+const dbUrl = getDatabaseUrl();
+process.env.DATABASE_URL = dbUrl;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -35,8 +49,14 @@ const globalForPrisma = globalThis as unknown as {
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: dbUrl,
+      },
+    },
+    log: ['error'],
   });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+
 
