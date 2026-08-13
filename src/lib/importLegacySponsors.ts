@@ -6,6 +6,9 @@ import { db } from '@/lib/db';
 export interface LegacySponsorExcelRow {
   'Sponsor ID'?: string;
   'Sponsor Name'?: string;
+  'C/O'?: string;
+  'c/o'?: string;
+  'Care Of'?: string;
   'Gender'?: string;
   'Contact Number'?: string;
   'Contact 2'?: string;
@@ -18,15 +21,25 @@ export interface LegacySponsorExcelRow {
   'State Name'?: string;
   'PIN Code'?: string;
   'Annual Commitment'?: string | number;
+  'Count of Slabs'?: string | number;
+  'Slab Count'?: string | number;
+  'Slab Name'?: string;
+  'Slab Amount'?: string | number;
+  'Monthly Slab Amount'?: string | number;
+  'Sponsored Student Name'?: string;
+  'Sponsored Student Adm No'?: string;
+  'Starting Date'?: string;
+  'Start Date'?: string;
   'Commitment Start Date'?: string;
+  'Ending Date'?: string;
+  'End Date'?: string;
+  'Commitment End Date'?: string;
   // Optional Payment & Contribution Fields
   'Payment Amount'?: string | number;
   'Previous Payment Amount'?: string | number;
   'Payment Date'?: string;
   'Payment Mode'?: string;
   'Payment Heading'?: string;
-  'Slab Name'?: string;
-  'Monthly Slab Amount'?: string | number;
 }
 
 export async function importLegacySponsors(filePath: string) {
@@ -46,6 +59,7 @@ export async function importLegacySponsors(filePath: string) {
   let importedCount = 0;
   let skippedCount = 0;
   let paymentsRecordedCount = 0;
+  let studentAllocationsCount = 0;
   const unmappedRecords: Array<{ row: LegacySponsorExcelRow; reason: string }> = [];
 
   // Default state: Kerala
@@ -71,6 +85,13 @@ export async function importLegacySponsors(filePath: string) {
 
     const autoSponsorId = row['Sponsor ID']?.toString().trim() || `SP-IMP-${Date.now()}-${i + 1}`;
 
+    // Care Of (c/o)
+    const careOf = (row['C/O'] || row['c/o'] || row['Care Of'])?.toString().trim() || null;
+
+    // Slab Count
+    const slabCountRaw = row['Count of Slabs'] ?? row['Slab Count'];
+    const slabCount = slabCountRaw ? parseInt(slabCountRaw.toString().replace(/[^0-9]/g, ''), 10) : 1;
+
     // District lookup or auto-create
     const districtName = row['District Name']?.toString().trim() || 'Malappuram';
     let district = await db.district.findFirst({
@@ -91,10 +112,19 @@ export async function importLegacySponsors(filePath: string) {
     const annualCommitment = commitmentRaw ? parseFloat(commitmentRaw.toString().replace(/[^0-9.]/g, '')) : 0;
 
     // Parse Commitment Start Date
+    const startDateRaw = row['Starting Date'] || row['Start Date'] || row['Commitment Start Date'];
     let commitmentStartDate: Date | null = null;
-    if (row['Commitment Start Date']) {
-      const parsedStart = new Date(row['Commitment Start Date']);
+    if (startDateRaw) {
+      const parsedStart = new Date(startDateRaw);
       if (!isNaN(parsedStart.getTime())) commitmentStartDate = parsedStart;
+    }
+
+    // Parse Commitment End Date
+    const endDateRaw = row['Ending Date'] || row['End Date'] || row['Commitment End Date'];
+    let commitmentEndDate: Date | null = null;
+    if (endDateRaw) {
+      const parsedEnd = new Date(endDateRaw);
+      if (!isNaN(parsedEnd.getTime())) commitmentEndDate = parsedEnd;
     }
 
     // Check duplicate sponsor by sponsorId or (name + contact1)
@@ -113,6 +143,7 @@ export async function importLegacySponsors(filePath: string) {
           data: {
             sponsorId: autoSponsorId,
             name: sponsorName,
+            careOf,
             gender: row['Gender']?.toString().trim() || 'Male',
             isAnonymous,
             nationalId: row['National ID']?.toString().trim() || null,
@@ -125,7 +156,9 @@ export async function importLegacySponsors(filePath: string) {
             stateId: keralaState.id,
             pinCode: row['PIN Code']?.toString().trim() || null,
             annualCommitment: isNaN(annualCommitment) ? 0 : annualCommitment,
+            slabCount: isNaN(slabCount) || slabCount < 1 ? 1 : slabCount,
             commitmentStartDate: commitmentStartDate || (row['Payment Date'] ? new Date(row['Payment Date']) : new Date()),
+            commitmentEndDate: commitmentEndDate || null,
           },
         });
 
@@ -139,10 +172,85 @@ export async function importLegacySponsors(filePath: string) {
         continue;
       }
     } else {
-      console.log(`ℹ️ Existing sponsor found: ${sponsor.name} (${sponsor.sponsorId})`);
+      // Update existing sponsor with new careOf / dates / slabCount if missing
+      sponsor = await db.sponsor.update({
+        where: { id: sponsor.id },
+        data: {
+          careOf: sponsor.careOf || careOf,
+          commitmentEndDate: sponsor.commitmentEndDate || commitmentEndDate,
+          slabCount: sponsor.slabCount || slabCount,
+        },
+      });
+      console.log(`ℹ️ Existing sponsor updated: ${sponsor.name} (${sponsor.sponsorId})`);
     }
 
-    // Process Optional Previous Payment / Contribution if present
+    // Process Optional Slab Master
+    let slabId: string | null = null;
+    if (row['Slab Name'] || row['Slab Amount'] || row['Monthly Slab Amount']) {
+      const slabName = row['Slab Name']?.toString().trim() || 'Standard Slab';
+      const slabAmtRaw = row['Slab Amount'] ?? row['Monthly Slab Amount'] ?? '1000';
+      const slabAmt = parseFloat(slabAmtRaw.toString().replace(/[^0-9.]/g, ''));
+
+      if (!isNaN(slabAmt) && slabAmt > 0) {
+        let slab = await db.sponsorshipSlab.findFirst({
+          where: { name: { contains: slabName } },
+        });
+        if (!slab) {
+          slab = await db.sponsorshipSlab.create({
+            data: { name: slabName, amount: slabAmt, description: 'Created via Excel Migration' },
+          });
+        }
+        slabId = slab.id;
+      }
+    }
+
+    // Process Sponsored Student Allocation if provided
+    const studentNameRaw = row['Sponsored Student Name']?.toString().trim();
+    const studentAdmNoRaw = row['Sponsored Student Adm No']?.toString().trim();
+
+    if (studentNameRaw || studentAdmNoRaw) {
+      let student = null;
+      if (studentAdmNoRaw) {
+        student = await db.student.findUnique({ where: { admissionNo: studentAdmNoRaw } });
+      }
+      if (!student && studentNameRaw) {
+        student = await db.student.findFirst({
+          where: { name: { contains: studentNameRaw } },
+        });
+      }
+
+      if (student) {
+        // Link student to sponsor
+        await db.student.update({
+          where: { id: student.id },
+          data: {
+            sponsorId: sponsor.id,
+            sponsorshipStartDate: commitmentStartDate || new Date(),
+          },
+        });
+
+        // Create allocation record if not exists
+        const existingAlloc = await db.sponsorSlabAllocation.findFirst({
+          where: { sponsorId: sponsor.id, studentId: student.id },
+        });
+
+        if (!existingAlloc) {
+          await db.sponsorSlabAllocation.create({
+            data: {
+              sponsorId: sponsor.id,
+              studentId: student.id,
+              slabId: slabId || undefined,
+              customAmount: isNaN(annualCommitment) ? null : annualCommitment,
+            },
+          });
+        }
+        studentAllocationsCount++;
+      } else {
+        console.log(`⚠️ Sponsored student "${studentNameRaw || studentAdmNoRaw}" not found during sponsor migration.`);
+      }
+    }
+
+    // Process Payment Installment into SponsorPayment table & Voucher
     const paymentAmtRaw = row['Payment Amount'] ?? row['Previous Payment Amount'];
     if (paymentAmtRaw !== undefined && paymentAmtRaw !== null && paymentAmtRaw !== '') {
       const paymentAmount = parseFloat(paymentAmtRaw.toString().replace(/[^0-9.]/g, ''));
@@ -153,13 +261,25 @@ export async function importLegacySponsors(filePath: string) {
           if (!isNaN(parsedDate.getTime())) paymentDate = parsedDate;
         }
 
-        const heading = row['Payment Heading'] || 'Sponsor Legacy Contribution';
+        const heading = row['Payment Heading'] || 'Sponsorship Contribution';
         const paymentMode = row['Payment Mode'] || 'Bank Transfer';
 
         try {
+          // Record in SponsorPayment table (for payment tracker)
+          await db.sponsorPayment.create({
+            data: {
+              sponsorId: sponsor.id,
+              amount: paymentAmount,
+              date: paymentDate,
+              paymentMode,
+              notes: heading,
+            },
+          });
+
+          // Also record in Voucher table
           await db.voucher.create({
             data: {
-              voucherNo: `VCH-SP-LEGACY-${Date.now()}-${i + 1}`,
+              voucherNo: `VCH-SP-MIG-${Date.now()}-${i + 1}`,
               date: paymentDate,
               amount: paymentAmount,
               type: 'YATHEEM_COMMON',
@@ -172,24 +292,7 @@ export async function importLegacySponsors(filePath: string) {
           });
           paymentsRecordedCount++;
         } catch (vchErr: any) {
-          console.error('Failed to create voucher for sponsor payment:', vchErr);
-        }
-      }
-    }
-
-    // Optional: Setup Sponsorship Slab if provided
-    if (row['Slab Name'] || row['Monthly Slab Amount']) {
-      const slabName = row['Slab Name']?.toString().trim() || 'Standard Slab';
-      const slabAmt = parseFloat((row['Monthly Slab Amount'] || '1000').toString().replace(/[^0-9.]/g, ''));
-
-      if (!isNaN(slabAmt) && slabAmt > 0) {
-        let slab = await db.sponsorshipSlab.findFirst({
-          where: { name: { contains: slabName } },
-        });
-        if (!slab) {
-          slab = await db.sponsorshipSlab.create({
-            data: { name: slabName, amount: slabAmt, description: 'Created via Legacy Sponsor Import' },
-          });
+          console.error('Failed to create payment/voucher for sponsor:', vchErr);
         }
       }
     }
@@ -199,11 +302,12 @@ export async function importLegacySponsors(filePath: string) {
   const logPath = path.join(process.cwd(), 'unmapped_sponsors.json');
   fs.writeFileSync(logPath, JSON.stringify(unmappedRecords, null, 2));
 
-  console.log(`✅ Sponsor Import: ${importedCount} sponsors imported, ${paymentsRecordedCount} payments recorded, ${skippedCount} flagged.`);
+  console.log(`✅ Sponsor Migration: ${importedCount} sponsors imported, ${studentAllocationsCount} students linked, ${paymentsRecordedCount} payments recorded, ${skippedCount} flagged.`);
 
   return {
     total: rows.length,
     importedCount,
+    studentAllocationsCount,
     paymentsRecordedCount,
     skippedCount,
     unmappedRecords,

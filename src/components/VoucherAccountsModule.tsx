@@ -15,11 +15,11 @@ import {
 
 const STUDENT_HEADINGS = [
   'Dress exp', 'Meat exp', 'Medical exp', 'Monthly exp', 'Monthly kit exp',
-  'Perunnal kit exp', 'School & madrasa kit', 'Academic affairs', 'Vehicle exp',
+  'Perunnal kit exp', 'School & madrasa kit', 'Academic affairs', 'Vehicle exp', 'Other',
 ];
 const COMMON_HEADINGS = [
   'Salary of section employees', 'Transportation', 'TA & DA for trainers',
-  'Camp exp', 'Infrastructure repair', 'Utility bills & maintenance', 'Other operational cost',
+  'Camp exp', 'Infrastructure repair', 'Utility bills & maintenance', 'Other operational cost', 'Other',
 ];
 const PAYMENT_MODES = ['Cash', 'Bank Transfer', 'UPI', 'Cheque'];
 
@@ -30,6 +30,7 @@ export const VoucherAccountsModule: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [printVoucher, setPrintVoucher] = useState<any | null>(null);
+  const [customHeading, setCustomHeading] = useState('');
 
   const [form, setForm] = useState<any>({
     voucherNo: `VCH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -46,6 +47,7 @@ export const VoucherAccountsModule: React.FC = () => {
 
   useEffect(() => { fetchVouchers(); fetchStudents(); }, []);
   useEffect(() => {
+    setCustomHeading('');
     setForm((prev: any) => ({
       ...prev,
       heading: voucherType === 'STUDENT_EXPENSE' ? STUDENT_HEADINGS[0] : COMMON_HEADINGS[0],
@@ -206,14 +208,35 @@ export const VoucherAccountsModule: React.FC = () => {
             <div>
               <label className="block text-xs text-slate-400 mb-1 font-medium">Expense Heading</label>
               <select
-                value={form.heading}
-                onChange={(e) => setForm({ ...form, heading: e.target.value })}
+                value={form.heading === customHeading && !STUDENT_HEADINGS.includes(form.heading) && !COMMON_HEADINGS.includes(form.heading) ? 'Other' : form.heading}
+                onChange={(e) => {
+                  if (e.target.value === 'Other') {
+                    setForm({ ...form, heading: customHeading || '' });
+                  } else {
+                    setCustomHeading('');
+                    setForm({ ...form, heading: e.target.value });
+                  }
+                }}
                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
               >
                 {headings.map((h) => (
                   <option key={h} value={h}>{h}</option>
                 ))}
               </select>
+              {/* Custom heading input when Other is selected */}
+              {form.heading === 'Other' || (!STUDENT_HEADINGS.includes(form.heading) && !COMMON_HEADINGS.includes(form.heading) && form.heading !== '') ? (
+                <input
+                  type="text"
+                  required
+                  placeholder="Specify heading e.g. Event expenses, Festival gift..."
+                  value={form.heading === 'Other' ? customHeading : form.heading}
+                  onChange={(e) => {
+                    setCustomHeading(e.target.value);
+                    setForm({ ...form, heading: e.target.value });
+                  }}
+                  className="w-full mt-2 bg-slate-800 border border-indigo-500/50 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-400 placeholder:text-slate-500"
+                />
+              ) : null}
             </div>
 
             <div>

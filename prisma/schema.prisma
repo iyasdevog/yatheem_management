@@ -102,6 +102,9 @@ model Sponsor {
   pinCode              String?
   annualCommitment     Float?                  @default(0)
   commitmentStartDate DateTime?
+  commitmentEndDate   DateTime?
+  careOf               String?
+  slabCount            Int?                    @default(1)
   sponsorshipStartDate DateTime                @default(now())
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
