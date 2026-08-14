@@ -146,3 +146,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create voucher' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Voucher ID required' }, { status: 400 });
+
+    await db.voucher.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Voucher DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete voucher' }, { status: 500 });
+  }
+}
+

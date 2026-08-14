@@ -9,7 +9,39 @@ export async function GET(req: NextRequest) {
     let data: any[] = [];
     let filename = '';
 
-    if (type === 'sponsors') {
+    if (type === 'vouchers') {
+      filename = 'Voucher_Migration_Template.xlsx';
+      data = [
+        {
+          'Voucher No': 'VCH-2026-001',
+          'Date (YYYY-MM-DD)': '2025-04-15',
+          'Amount': 2500,
+          'Type': 'STUDENT_EXPENSE',
+          'Expense Heading': 'Dress exp',
+          'Payment Mode': 'Cash',
+          'Student Adm No': 'ADM-2026-001',
+          'Student Name': 'Mohammed Sahal',
+          'Sponsor ID': 'SP-2026-001',
+          'Sponsor Name': 'Abdul Kareem',
+          'Description': 'Festive clothing and school uniform purchase',
+          'Created By': 'Office Accounts',
+        },
+        {
+          'Voucher No': 'VCH-2026-002',
+          'Date (YYYY-MM-DD)': '2025-05-01',
+          'Amount': 15000,
+          'Type': 'YATHEEM_COMMON',
+          'Expense Heading': 'Salary of section employees',
+          'Payment Mode': 'Bank Transfer',
+          'Student Adm No': '',
+          'Student Name': '',
+          'Sponsor ID': '',
+          'Sponsor Name': '',
+          'Description': 'Staff monthly honorarium payout',
+          'Created By': 'Chief Accounts Officer',
+        },
+      ];
+    } else if (type === 'sponsors') {
       filename = 'Sponsor_Migration_Template.xlsx';
       data = [
         {

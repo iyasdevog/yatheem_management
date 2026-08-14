@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import * as XLSX from 'xlsx';
 import { db } from '@/lib/db';
 
@@ -298,9 +299,15 @@ export async function importLegacySponsors(filePath: string) {
     }
   }
 
-  // Save unmapped dirty records log to project root
-  const logPath = path.join(process.cwd(), 'unmapped_sponsors.json');
-  fs.writeFileSync(logPath, JSON.stringify(unmappedRecords, null, 2));
+  // Save unmapped dirty records log safely to temp directory
+  let logPath = '';
+  try {
+    const tempDir = os.tmpdir();
+    logPath = path.join(tempDir, 'unmapped_sponsors.json');
+    fs.writeFileSync(logPath, JSON.stringify(unmappedRecords, null, 2));
+  } catch (logErr) {
+    console.warn('Could not write unmapped sponsors log file to disk:', logErr);
+  }
 
   console.log(`✅ Sponsor Migration: ${importedCount} sponsors imported, ${studentAllocationsCount} students linked, ${paymentsRecordedCount} payments recorded, ${skippedCount} flagged.`);
 

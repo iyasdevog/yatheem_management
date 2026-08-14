@@ -10,6 +10,7 @@ import {
   Users,
   Building2,
   Printer,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -28,6 +29,7 @@ export const VoucherAccountsModule: React.FC = () => {
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [printVoucher, setPrintVoucher] = useState<any | null>(null);
   const [customHeading, setCustomHeading] = useState('');
@@ -74,6 +76,26 @@ export const VoucherAccountsModule: React.FC = () => {
       familyNo: st?.familyNo || '',
       studentName: st?.name || '',
     }));
+  };
+
+  const handleDeleteVoucher = async (v: any) => {
+    if (!window.confirm(`Delete voucher "${v.voucherNo}" (₹${v.amount})? This cannot be undone.`)) return;
+    setDeletingId(v.id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/vouchers?id=${v.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMsg({ type: 'success', text: `Voucher ${v.voucherNo} deleted successfully.` });
+        fetchVouchers();
+      } else {
+        const data = await res.json();
+        setMsg({ type: 'error', text: data.error || 'Failed to delete voucher' });
+      }
+    } catch {
+      setMsg({ type: 'error', text: 'Error deleting voucher' });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,13 +355,23 @@ export const VoucherAccountsModule: React.FC = () => {
                     {new Date(v.date).toLocaleDateString('en-IN')} · {v.description || 'No notes'}
                   </div>
                 </div>
-                <button
-                  onClick={() => setPrintVoucher(v)}
-                  className="ml-3 opacity-0 group-hover:opacity-100 transition p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300"
-                  title="Print Receipt"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                </button>
+                <div className="ml-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                  <button
+                    onClick={() => setPrintVoucher(v)}
+                    className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition"
+                    title="Print Receipt"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteVoucher(v)}
+                    disabled={deletingId === v.id}
+                    className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition disabled:opacity-40"
+                    title="Delete Voucher"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

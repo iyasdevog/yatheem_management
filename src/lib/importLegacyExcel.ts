@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import * as XLSX from 'xlsx';
 import { db } from '@/lib/db';
 
@@ -160,9 +161,15 @@ export async function importLegacyExcel(filePath: string) {
     }
   }
 
-  // Save dirty record log to project root
-  const logPath = path.join(process.cwd(), 'unmapped_records.json');
-  fs.writeFileSync(logPath, JSON.stringify(unmappedRecords, null, 2));
+  // Save dirty record log safely to temp directory
+  let logPath = '';
+  try {
+    const tempDir = os.tmpdir();
+    logPath = path.join(tempDir, 'unmapped_records.json');
+    fs.writeFileSync(logPath, JSON.stringify(unmappedRecords, null, 2));
+  } catch (logErr) {
+    console.warn('Could not write unmapped records log file to disk:', logErr);
+  }
 
   console.log(`✅ Import: ${importedCount} imported, ${skippedCount} flagged.`);
 
