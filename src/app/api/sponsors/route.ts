@@ -200,3 +200,60 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete sponsor' }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      name,
+      gender,
+      isAnonymous,
+      nationalId,
+      contact1,
+      contact2,
+      whatsapp,
+      houseName,
+      place,
+      stateId,
+      districtId,
+      localBodyTypeId,
+      localBodyId,
+      postOfficeId,
+      pinCode,
+      annualCommitment,
+      commitmentStartDate,
+    } = body;
+
+    if (!id) return NextResponse.json({ error: 'Sponsor ID is required' }, { status: 400 });
+    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+
+    const sponsor = await db.sponsor.update({
+      where: { id },
+      data: {
+        name,
+        gender,
+        isAnonymous: Boolean(isAnonymous),
+        nationalId,
+        contact1,
+        contact2,
+        whatsapp,
+        houseName,
+        place,
+        stateId: stateId || null,
+        districtId: districtId || null,
+        localBodyTypeId: localBodyTypeId || null,
+        localBodyId: localBodyId || null,
+        postOfficeId: postOfficeId || null,
+        pinCode,
+        annualCommitment: annualCommitment ? parseFloat(annualCommitment) : undefined,
+        commitmentStartDate: commitmentStartDate ? new Date(commitmentStartDate) : undefined,
+      },
+    });
+
+    return NextResponse.json(sponsor);
+  } catch (error: any) {
+    console.error('Sponsor PUT error:', error);
+    return NextResponse.json({ error: 'Failed to update sponsor' }, { status: 500 });
+  }
+}

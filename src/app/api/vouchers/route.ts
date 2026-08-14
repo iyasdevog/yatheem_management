@@ -161,3 +161,69 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      voucherNo,
+      date,
+      amount,
+      type,
+      heading,
+      paymentMode,
+      studentId,
+      familyNo,
+      studentName,
+      description,
+    } = body;
+
+    if (!id) return NextResponse.json({ error: 'Voucher ID is required' }, { status: 400 });
+    if (!amount || !heading || !paymentMode)
+      return NextResponse.json({ error: 'Amount, Heading, and Payment Mode are required' }, { status: 400 });
+
+    // Re-resolve sponsor if student changed
+    let resolvedSponsorId: string | null = null;
+    let resolvedSponsorName: string | null = null;
+    let resolvedFamilyNo = familyNo;
+    let resolvedStudentName = studentName;
+
+    if (type === 'STUDENT_EXPENSE' && studentId) {
+      const student = await db.student.findUnique({
+        where: { id: studentId },
+        include: { sponsor: true },
+      });
+      if (student) {
+        resolvedFamilyNo = student.familyNo;
+        resolvedStudentName = student.name;
+        if (student.sponsor) {
+          resolvedSponsorId = student.sponsor.id;
+          resolvedSponsorName = student.sponsor.isAnonymous ? 'Well-wisher' : student.sponsor.name;
+        }
+      }
+    }
+
+    const voucher = await db.voucher.update({
+      where: { id },
+      data: {
+        voucherNo,
+        date: date ? new Date(date) : undefined,
+        amount: parseFloat(amount),
+        type,
+        heading,
+        paymentMode,
+        studentId: studentId || null,
+        sponsorId: resolvedSponsorId,
+        familyNo: resolvedFamilyNo,
+        studentName: resolvedStudentName,
+        sponsorName: resolvedSponsorName,
+        description,
+      },
+    });
+
+    return NextResponse.json(voucher);
+  } catch (error: any) {
+    console.error('Voucher PUT error:', error);
+    return NextResponse.json({ error: 'Failed to update voucher' }, { status: 500 });
+  }
+}

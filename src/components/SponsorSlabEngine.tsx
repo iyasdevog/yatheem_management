@@ -17,6 +17,8 @@ import {
   Download,
   FileSpreadsheet,
   Trash2,
+  Edit3,
+  Save,
 } from 'lucide-react';
 import { SponsorPaymentTracker } from '@/components/SponsorPaymentTracker';
 
@@ -30,6 +32,8 @@ export const SponsorSlabEngine: React.FC = () => {
   const [paymentTrackerSponsor, setPaymentTrackerSponsor] = useState<any | null>(null);
   const [exporting, setExporting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingSponsor, setEditingSponsor] = useState<any | null>(null);
+  const [savingSponsor, setSavingSponsor] = useState(false);
 
   // Sponsorship Plan state — slab × count drives everything
   const [planSlabId, setPlanSlabId] = useState<string>('');
@@ -136,6 +140,31 @@ export const SponsorSlabEngine: React.FC = () => {
       }
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleUpdateSponsor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSponsor) return;
+    try {
+      setSavingSponsor(true);
+      const res = await fetch('/api/sponsors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingSponsor),
+      });
+      if (res.ok) {
+        setMsg(`Sponsor "${editingSponsor.name}" updated successfully!`);
+        setEditingSponsor(null);
+        fetchData();
+      } else {
+        const d = await res.json();
+        setMsg(d.error || 'Failed to update sponsor.');
+      }
+    } catch {
+      setMsg('Error updating sponsor.');
+    } finally {
+      setSavingSponsor(false);
     }
   };
 
@@ -662,6 +691,14 @@ export const SponsorSlabEngine: React.FC = () => {
                         View Ledger
                       </button>
                       <button
+                        onClick={() => setEditingSponsor({ ...sp, annualCommitment: sp.annualCommitment || 0, commitmentStartDate: sp.commitmentStartDate ? new Date(sp.commitmentStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0] })}
+                        className="inline-flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
+                        title="Edit sponsor details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      <button
                         onClick={() => handleDeleteSponsor(sp)}
                         disabled={deletingId === sp.id}
                         className="inline-flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50"
@@ -813,6 +850,162 @@ export const SponsorSlabEngine: React.FC = () => {
           sponsorName={paymentTrackerSponsor.isAnonymous ? 'Anonymous Donor' : paymentTrackerSponsor.name}
           onClose={() => { setPaymentTrackerSponsor(null); fetchData(); }}
         />
+      )}
+
+      {/* Edit Sponsor Modal */}
+      {editingSponsor && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-amber-400" />
+                  Edit Sponsor Details
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {editingSponsor.sponsorId} · Updating contact, address & commitment information
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingSponsor(null)}
+                className="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-xl transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSponsor} className="space-y-4">
+              {/* Identity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Full Name <span className="text-rose-400">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSponsor.name}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, name: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Gender</label>
+                  <select
+                    value={editingSponsor.gender || 'Male'}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, gender: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Primary Contact <span className="text-rose-400">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={editingSponsor.contact1 || ''}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, contact1: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">WhatsApp / Alternate Contact</label>
+                  <input
+                    type="text"
+                    value={editingSponsor.whatsapp || ''}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, whatsapp: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">House Name / C/O</label>
+                  <input
+                    type="text"
+                    value={editingSponsor.houseName || ''}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, houseName: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Place / Locality</label>
+                  <input
+                    type="text"
+                    value={editingSponsor.place || ''}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, place: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Commitment */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Annual Commitment (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingSponsor.annualCommitment ?? 0}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, annualCommitment: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">Commitment Start Date</label>
+                  <input
+                    type="date"
+                    value={editingSponsor.commitmentStartDate || ''}
+                    onChange={(e) => setEditingSponsor({ ...editingSponsor, commitmentStartDate: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Anonymous Toggle */}
+              <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                <input
+                  type="checkbox"
+                  id="edit-anonymous"
+                  checked={Boolean(editingSponsor.isAnonymous)}
+                  onChange={(e) => setEditingSponsor({ ...editingSponsor, isAnonymous: e.target.checked })}
+                  className="w-4 h-4 rounded accent-amber-500"
+                />
+                <label htmlFor="edit-anonymous" className="text-xs text-slate-300 font-medium flex items-center gap-1.5">
+                  <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                  Mark as Anonymous / Well-wisher (hides identity in public views)
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingSponsor(null)}
+                  className="px-4 py-2 text-sm text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSponsor}
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold rounded-xl text-sm transition disabled:opacity-50 shadow-lg shadow-amber-500/20"
+                >
+                  <Save className="w-4 h-4" />
+                  {savingSponsor ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

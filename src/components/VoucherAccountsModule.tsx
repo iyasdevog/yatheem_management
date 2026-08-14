@@ -12,6 +12,7 @@ import {
   Printer,
   Trash2,
   X,
+  Edit3,
 } from 'lucide-react';
 
 const STUDENT_HEADINGS = [
@@ -30,6 +31,7 @@ export const VoucherAccountsModule: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [printVoucher, setPrintVoucher] = useState<any | null>(null);
   const [customHeading, setCustomHeading] = useState('');
@@ -98,21 +100,58 @@ export const VoucherAccountsModule: React.FC = () => {
     }
   };
 
+  const handleEditVoucher = (v: any) => {
+    setEditingVoucherId(v.id);
+    setVoucherType(v.type as 'STUDENT_EXPENSE' | 'YATHEEM_COMMON');
+    setForm({
+      voucherNo: v.voucherNo,
+      date: new Date(v.date).toISOString().split('T')[0],
+      amount: String(v.amount),
+      heading: v.heading,
+      paymentMode: v.paymentMode,
+      studentId: v.studentId || '',
+      familyNo: v.familyNo || '',
+      studentName: v.studentName || '',
+      description: v.description || '',
+      createdBy: v.createdBy || 'Admin Officer',
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingVoucherId(null);
+    setForm({
+      voucherNo: `VCH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      heading: voucherType === 'STUDENT_EXPENSE' ? STUDENT_HEADINGS[0] : COMMON_HEADINGS[0],
+      paymentMode: 'Cash',
+      studentId: '',
+      familyNo: '',
+      studentName: '',
+      description: '',
+      createdBy: 'Admin Officer',
+    });
+    setMsg(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMsg(null);
     try {
+      const isEditing = Boolean(editingVoucherId);
       const res = await fetch('/api/vouchers', {
-        method: 'POST',
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, type: voucherType }),
+        body: JSON.stringify({ ...form, id: editingVoucherId, type: voucherType }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMsg({ type: 'error', text: data.error || 'Failed to create voucher' });
+        setMsg({ type: 'error', text: data.error || (isEditing ? 'Failed to update voucher' : 'Failed to create voucher') });
       } else {
-        setMsg({ type: 'success', text: `Voucher ${data.voucherNo} created successfully!` });
+        setMsg({ type: 'success', text: isEditing ? `Voucher ${data.voucherNo} updated successfully!` : `Voucher ${data.voucherNo} created successfully!` });
+        setEditingVoucherId(null);
         setForm((prev: any) => ({
           ...prev,
           voucherNo: `VCH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -188,11 +227,22 @@ export const VoucherAccountsModule: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Voucher Creation Form */}
-        <div className="lg:col-span-2 bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-          <h3 className="text-sm font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            New {voucherType === 'STUDENT_EXPENSE' ? 'Student' : 'Common'} Voucher
-          </h3>
+        <div className={`lg:col-span-2 bg-slate-900 p-6 rounded-2xl border space-y-4 ${editingVoucherId ? 'border-amber-500/40' : 'border-slate-800'}`}>
+          <div className="flex items-center justify-between">
+            <h3 className={`text-sm font-semibold uppercase tracking-wider flex items-center gap-2 ${editingVoucherId ? 'text-amber-400' : 'text-indigo-400'}`}>
+              {editingVoucherId ? <Edit3 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {editingVoucherId ? 'Edit Voucher' : `New ${voucherType === 'STUDENT_EXPENSE' ? 'Student' : 'Common'} Voucher`}
+            </h3>
+            {editingVoucherId && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg transition"
+              >
+                <X className="w-3 h-3" /> Cancel Edit
+              </button>
+            )}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block text-xs text-slate-400 mb-1 font-medium">Voucher No</label>
@@ -316,9 +366,13 @@ export const VoucherAccountsModule: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 transition text-sm disabled:opacity-50"
+              className={`w-full font-bold px-4 py-2.5 rounded-xl shadow-lg transition text-sm disabled:opacity-50 ${
+                editingVoucherId
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-amber-500/20'
+                  : 'bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white shadow-indigo-500/20'
+              }`}
             >
-              {loading ? 'Creating...' : 'Create Voucher'}
+              {loading ? (editingVoucherId ? 'Updating...' : 'Creating...') : (editingVoucherId ? 'Update Voucher' : 'Create Voucher')}
             </button>
           </form>
         </div>
@@ -362,6 +416,13 @@ export const VoucherAccountsModule: React.FC = () => {
                     title="Print Receipt"
                   >
                     <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleEditVoucher(v)}
+                    className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition"
+                    title="Edit Voucher"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDeleteVoucher(v)}

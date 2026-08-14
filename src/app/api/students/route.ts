@@ -204,3 +204,127 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 });
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      admissionNo,
+      familyNo,
+      admissionDate,
+      name,
+      dob,
+      gender,
+      nationalId,
+      contact1,
+      contact2,
+      whatsapp,
+      status,
+      inactiveReason,
+      sponsorId,
+      sponsorshipStartDate,
+      guardianName,
+      fatherName,
+      motherName,
+      houseName,
+      place,
+      stateId,
+      districtId,
+      localBodyTypeId,
+      localBodyId,
+      postOfficeId,
+      pinCode,
+      mahalluId,
+      familyCategory,
+      photoKey,
+      educationalRecords,
+    } = body;
+
+    if (!id) return NextResponse.json({ error: 'Student ID is required' }, { status: 400 });
+    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+
+    const student = await db.student.update({
+      where: { id },
+      data: {
+        admissionNo,
+        familyNo,
+        admissionDate: admissionDate ? new Date(admissionDate) : undefined,
+        name,
+        dob: dob ? new Date(dob) : undefined,
+        gender,
+        nationalId,
+        contact1,
+        contact2,
+        whatsapp,
+        status,
+        inactiveReason,
+        sponsorId: sponsorId || null,
+        sponsorshipStartDate: sponsorshipStartDate ? new Date(sponsorshipStartDate) : undefined,
+        guardianName,
+        fatherName,
+        motherName,
+        houseName,
+        place,
+        stateId: stateId || null,
+        districtId: districtId || null,
+        localBodyTypeId: localBodyTypeId || null,
+        localBodyId: localBodyId || null,
+        postOfficeId: postOfficeId || null,
+        pinCode,
+        mahalluId: mahalluId || null,
+        familyCategory,
+        photoKey: photoKey || null,
+      },
+    });
+
+    // Upsert educational records if provided
+    if (Array.isArray(educationalRecords)) {
+      for (const rec of educationalRecords) {
+        if (rec.id) {
+          await db.educationalRecord.update({
+            where: { id: rec.id },
+            data: {
+              academicYear: rec.academicYear,
+              schoolCategory: rec.schoolCategory,
+              schoolName: rec.schoolName,
+              classDivision: rec.classDivision,
+              schoolTeacherName: rec.schoolTeacherName,
+              schoolTeacherContact: rec.schoolTeacherContact,
+              madrasaCategory: rec.madrasaCategory,
+              madrasaName: rec.madrasaName,
+              madrasaClass: rec.madrasaClass,
+              madrasaTeacherName: rec.madrasaTeacherName,
+              madrasaTeacherContact: rec.madrasaTeacherContact,
+            },
+          });
+        } else {
+          await db.educationalRecord.create({
+            data: {
+              studentId: id,
+              academicYear: rec.academicYear,
+              schoolCategory: rec.schoolCategory,
+              schoolName: rec.schoolName,
+              classDivision: rec.classDivision,
+              schoolTeacherName: rec.schoolTeacherName,
+              schoolTeacherContact: rec.schoolTeacherContact,
+              madrasaCategory: rec.madrasaCategory,
+              madrasaName: rec.madrasaName,
+              madrasaClass: rec.madrasaClass,
+              madrasaTeacherName: rec.madrasaTeacherName,
+              madrasaTeacherContact: rec.madrasaTeacherContact,
+            },
+          });
+        }
+      }
+    }
+
+    return NextResponse.json(student);
+  } catch (error: any) {
+    console.error('Student PUT error:', error);
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Admission Number already exists' }, { status: 409 });
+    }
+    return NextResponse.json({ error: 'Failed to update student' }, { status: 500 });
+  }
+}

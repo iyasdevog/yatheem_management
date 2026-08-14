@@ -35,6 +35,7 @@ export const StudentAdmissionForm: React.FC = () => {
   const [studentList, setStudentList] = useState<any[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [showStudentList, setShowStudentList] = useState(true);
 
   // Custom Mahallu Addition & Admin Review State
@@ -144,6 +145,64 @@ export const StudentAdmissionForm: React.FC = () => {
     } finally {
       setDeletingStudentId(null);
     }
+  };
+
+  const handleEditStudent = (student: any) => {
+    setEditingStudentId(student.id);
+    setFormData({
+      admissionNo: student.admissionNo || '',
+      familyNo: student.familyNo || '',
+      admissionDate: student.admissionDate ? new Date(student.admissionDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      name: student.name || '',
+      dob: student.dob ? new Date(student.dob).toISOString().split('T')[0] : '',
+      gender: student.gender || 'Male',
+      nationalId: student.nationalId || '',
+      contact1: student.contact1 || '',
+      contact2: student.contact2 || '',
+      whatsapp: student.whatsapp || '',
+      status: student.status || 'ACTIVE',
+      inactiveReason: student.inactiveReason || '',
+      sponsorId: student.sponsorId || '',
+      sponsorshipStartDate: student.sponsorshipStartDate ? new Date(student.sponsorshipStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      guardianName: student.guardianName || '',
+      fatherName: student.fatherName || '',
+      motherName: student.motherName || '',
+      houseName: student.houseName || '',
+      place: student.place || '',
+      stateId: student.stateId || '',
+      districtId: student.districtId || '',
+      localBodyTypeId: student.localBodyTypeId || '',
+      localBodyId: student.localBodyId || '',
+      postOfficeId: student.postOfficeId || '',
+      pinCode: student.pinCode || '',
+      mahalluId: student.mahalluId || '',
+      familyCategory: student.familyCategory || 'Yatheem / BPL',
+      photoKey: student.photoKey || '',
+      photoPreviewUrl: student.photoUrl || '',
+    });
+    if (Array.isArray(student.educationalRecords) && student.educationalRecords.length > 0) {
+      setEducationalRecords(student.educationalRecords);
+    }
+    setShowStudentList(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStudentId(null);
+    setFormData({
+      admissionNo: `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
+      familyNo: `FAM-${Math.floor(1000 + Math.random() * 9000)}`,
+      admissionDate: new Date().toISOString().split('T')[0],
+      name: '', dob: '2015-05-10', gender: 'Male', nationalId: '',
+      contact1: '', contact2: '', whatsapp: '', status: 'ACTIVE', inactiveReason: '',
+      sponsorId: '', sponsorshipStartDate: new Date().toISOString().split('T')[0],
+      guardianName: '', fatherName: '', motherName: '',
+      houseName: '', place: '', stateId: '', districtId: '', localBodyTypeId: '',
+      localBodyId: '', postOfficeId: '', pinCode: '', mahalluId: '',
+      familyCategory: 'Yatheem / BPL', photoKey: '', photoPreviewUrl: '',
+    });
+    setSuccessMsg('');
+    setErrorMsg('');
   };
 
   const fetchMahallus = async () => {
@@ -512,13 +571,11 @@ export const StudentAdmissionForm: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const payload = {
-        ...formData,
-        educationalRecords,
-      };
+      const isEditing = Boolean(editingStudentId);
+      const payload = { ...formData, educationalRecords, ...(isEditing ? { id: editingStudentId } : {}) };
 
       const res = await fetch('/api/students', {
-        method: 'POST',
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -526,9 +583,12 @@ export const StudentAdmissionForm: React.FC = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to submit student admission');
+        setErrorMsg(data.error || (isEditing ? 'Failed to update student' : 'Failed to submit student admission'));
       } else {
-        setSuccessMsg(`Student Admission created successfully! Admission No: ${data.admissionNo}`);
+        setSuccessMsg(isEditing
+          ? `Student record updated successfully! (${data.admissionNo})`
+          : `Student Admission created successfully! Admission No: ${data.admissionNo}`);
+        setEditingStudentId(null);
         fetchStudentList();
         // Reset form
         setFormData((prev: any) => ({
@@ -631,14 +691,24 @@ export const StudentAdmissionForm: React.FC = () => {
                           {s.sponsor ? (s.sponsor.isAnonymous ? 'Well-wisher' : s.sponsor.name) : '—'}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <button
-                            onClick={() => handleDeleteStudent(s)}
-                            disabled={deletingStudentId === s.id}
-                            className="inline-flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition disabled:opacity-50"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            {deletingStudentId === s.id ? 'Deleting...' : 'Delete'}
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleEditStudent(s)}
+                              className="inline-flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition"
+                              title="Edit student record"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStudent(s)}
+                              disabled={deletingStudentId === s.id}
+                              className="inline-flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              {deletingStudentId === s.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1203,13 +1273,28 @@ export const StudentAdmissionForm: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex items-center justify-end gap-3">
+          {editingStudentId && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold px-5 py-3 rounded-xl transition text-sm"
+            >
+              <X className="w-4 h-4" /> Cancel Edit
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading}
-            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold px-8 py-3 rounded-xl shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
+            className={`font-bold px-8 py-3 rounded-xl shadow-lg transition disabled:opacity-50 ${
+              editingStudentId
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-amber-500/20'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-500/20'
+            }`}
           >
-            {loading ? 'Registering Student...' : 'Submit Student Admission'}
+            {loading
+              ? (editingStudentId ? 'Updating...' : 'Registering Student...')
+              : (editingStudentId ? 'Update Student Record' : 'Submit Student Admission')}
           </button>
         </div>
       </form>
