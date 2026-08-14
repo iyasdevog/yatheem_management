@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { importLegacyExcel } from '@/lib/importLegacyExcel';
 import { importLegacySponsors } from '@/lib/importLegacySponsors';
 import { importLegacyVouchers } from '@/lib/importLegacyVouchers';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,21 +16,11 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const tempDir = os.tmpdir();
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const tempFilePath = path.join(tempDir, `import_${Date.now()}_${safeFileName}`);
-    await fs.promises.writeFile(tempFilePath, buffer);
-
     const result = type === 'sponsors'
-      ? await importLegacySponsors(tempFilePath)
+      ? await importLegacySponsors(buffer)
       : type === 'vouchers'
-      ? await importLegacyVouchers(tempFilePath)
-      : await importLegacyExcel(tempFilePath);
-
-    // Clean temp file
-    if (fs.existsSync(tempFilePath)) {
-      await fs.promises.unlink(tempFilePath);
-    }
+      ? await importLegacyVouchers(buffer)
+      : await importLegacyExcel(buffer);
 
     return NextResponse.json({
       success: true,

@@ -21,14 +21,19 @@ export interface LegacyExcelRow {
   'Status'?: string;
 }
 
-export async function importLegacyExcel(filePath: string) {
-  console.log(`🚀 Starting Legacy Excel Import from: ${filePath}`);
+export async function importLegacyExcel(fileSource: string | Buffer) {
+  console.log(`🚀 Starting Legacy Excel Import...`);
 
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
+  let workbook: XLSX.WorkBook;
+  if (typeof fileSource === 'string') {
+    if (!fs.existsSync(fileSource)) {
+      throw new Error(`File not found: ${fileSource}`);
+    }
+    workbook = XLSX.readFile(fileSource);
+  } else {
+    workbook = XLSX.read(fileSource, { type: 'buffer' });
   }
 
-  const workbook = XLSX.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   const rows: LegacyExcelRow[] = XLSX.utils.sheet_to_json(sheet);
