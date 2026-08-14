@@ -40,6 +40,7 @@ export const SponsorSlabEngine: React.FC = () => {
   const [planStudentCount, setPlanStudentCount] = useState<number>(1);
   const [planCustomAmount, setPlanCustomAmount] = useState<string>('');
   const [studentAssignments, setStudentAssignments] = useState<string[]>(['']);
+  const [studentSearches, setStudentSearches] = useState<string[]>(['']);
 
   // Form State
   const [newSponsor, setNewSponsor] = useState<any>({
@@ -121,6 +122,10 @@ export const SponsorSlabEngine: React.FC = () => {
   const handleStudentCountChange = (count: number) => {
     setPlanStudentCount(count);
     setStudentAssignments((prev) => {
+      if (count > prev.length) return [...prev, ...Array(count - prev.length).fill('')];
+      return prev.slice(0, count);
+    });
+    setStudentSearches((prev) => {
       if (count > prev.length) return [...prev, ...Array(count - prev.length).fill('')];
       return prev.slice(0, count);
     });
@@ -502,7 +507,7 @@ export const SponsorSlabEngine: React.FC = () => {
               </div>
             </div>
 
-            {/* ── STUDENT ASSIGNMENT (auto-appears based on count) ── */}
+              {/* ── STUDENT ASSIGNMENT (auto-appears based on count) ── */}
             {planSlabId && planStudentCount > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -511,34 +516,118 @@ export const SponsorSlabEngine: React.FC = () => {
                   <span className="text-[10px] text-slate-500">({planStudentCount} slot{planStudentCount > 1 ? 's' : ''} — assign now or later)</span>
                 </div>
                 <div className="space-y-2">
-                  {studentAssignments.map((sid, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-[10px] font-extrabold flex-shrink-0">
-                        {idx + 1}
-                      </div>
-                      <select
-                        value={sid}
-                        onChange={(e) => {
-                          const next = [...studentAssignments];
-                          next[idx] = e.target.value;
-                          setStudentAssignments(next);
-                        }}
-                        className="flex-1 bg-slate-900 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="">-- Assign student later --</option>
-                        {students.map((st) => (
-                          <option key={st.id} value={st.id}>
-                            {st.name} ({st.admissionNo})
-                          </option>
-                        ))}
-                      </select>
-                      {sid && (
-                        <div className="text-[10px] text-teal-400 font-bold whitespace-nowrap">
-                          ₹{getPerStudentAmount().toLocaleString('en-IN')}
+                  {studentAssignments.map((sid, idx) => {
+                    const search = studentSearches[idx] || '';
+                    const selectedStudent = students.find((s) => s.id === sid);
+                    const filteredStudents = students.filter((st) => {
+                      if (!search) return true;
+                      const q = search.toLowerCase();
+                      return (
+                        st.name?.toLowerCase().includes(q) ||
+                        st.admissionNo?.toLowerCase().includes(q)
+                      );
+                    });
+                    return (
+                      <div key={idx} className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-[10px] font-extrabold flex-shrink-0">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 relative">
+                            <input
+                              type="text"
+                              placeholder="Search by name or admission no..."
+                              value={selectedStudent ? `${selectedStudent.name} [${selectedStudent.admissionNo}]` : search}
+                              onChange={(e) => {
+                                const next = [...studentSearches];
+                                next[idx] = e.target.value;
+                                setStudentSearches(next);
+                                // Clear selection when user types
+                                const nextAssign = [...studentAssignments];
+                                nextAssign[idx] = '';
+                                setStudentAssignments(nextAssign);
+                              }}
+                              onFocus={() => {
+                                if (selectedStudent) {
+                                  // Show search text on focus so user can refine
+                                  const next = [...studentSearches];
+                                  next[idx] = '';
+                                  setStudentSearches(next);
+                                  const nextAssign = [...studentAssignments];
+                                  nextAssign[idx] = '';
+                                  setStudentAssignments(nextAssign);
+                                }
+                              }}
+                              className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500 placeholder:text-slate-500"
+                            />
+                            {/* Dropdown results */}
+                            {search && !sid && filteredStudents.length > 0 && (
+                              <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden max-h-44 overflow-y-auto">
+                                {filteredStudents.map((st) => (
+                                  <button
+                                    key={st.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const nextAssign = [...studentAssignments];
+                                      nextAssign[idx] = st.id;
+                                      setStudentAssignments(nextAssign);
+                                      const nextSearch = [...studentSearches];
+                                      nextSearch[idx] = '';
+                                      setStudentSearches(nextSearch);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-500/10 hover:text-indigo-300 text-slate-300 flex items-center justify-between gap-2 border-b border-slate-800 last:border-0 transition"
+                                  >
+                                    <span className="font-semibold text-white truncate">{st.name}</span>
+                                    <span className="font-mono text-indigo-400 text-[10px] shrink-0">{st.admissionNo}</span>
+                                  </button>
+                                ))}
+                                {filteredStudents.length === 0 && (
+                                  <div className="px-3 py-3 text-xs text-slate-500 text-center">No students found</div>
+                                )}
+                              </div>
+                            )}
+                            {search && !sid && filteredStudents.length === 0 && (
+                              <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-xl px-3 py-3 text-xs text-slate-500 text-center">
+                                No students match "{search}"
+                              </div>
+                            )}
+                          </div>
+                          {sid && (
+                            <>
+                              <div className="text-[10px] text-teal-400 font-bold whitespace-nowrap">
+                                ₹{getPerStudentAmount().toLocaleString('en-IN')}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextAssign = [...studentAssignments];
+                                  nextAssign[idx] = '';
+                                  setStudentAssignments(nextAssign);
+                                  const nextSearch = [...studentSearches];
+                                  nextSearch[idx] = '';
+                                  setStudentSearches(nextSearch);
+                                }}
+                                className="text-slate-500 hover:text-rose-400 transition text-[10px] font-bold"
+                                title="Clear selection"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {/* Selected badge */}
+                        {sid && selectedStudent && (
+                          <div className="flex items-center gap-2 ml-8 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2.5 py-1">
+                            <span className="text-[10px] text-white font-semibold truncate">{selectedStudent.name}</span>
+                            <span className="font-mono text-[10px] text-indigo-400">{selectedStudent.admissionNo}</span>
+                            {selectedStudent.familyNo && (
+                              <span className="text-[10px] text-slate-400">· Fam: {selectedStudent.familyNo}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
